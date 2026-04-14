@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic Hackathon - Регистрация</title>
+    
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1e38 100%);
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --text-main: #ffffff;
+            --text-dim: #94a3b8;
+            --input-bg: rgba(0, 0, 0, 0.2);
+            --border: rgba(255, 255, 255, 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-gradient);
+            font-family: 'Inter', -apple-system, sans-serif;
+            color: var(--text-main);
+        }
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 3rem 2.5rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .brand { text-align: center; margin-bottom: 2.5rem; }
+        .brand-logo { font-size: 22px; font-weight: 800; text-transform: uppercase; }
+        .brand-logo span {
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        h1 { font-size: 24px; font-weight: 600; margin-bottom: 0.5rem; text-align: center; }
+        .subtitle { font-size: 14px; color: var(--text-dim); margin-bottom: 2rem; text-align: center; }
+        .field { margin-bottom: 1.2rem; }
+        label { display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; margin-bottom: 8px; }
+        input {
+            width: 100%; height: 48px; padding: 0 16px;
+            background: var(--input-bg); border: 1px solid var(--border);
+            border-radius: 12px; color: white; font-size: 15px;
+            transition: all 0.2s; outline: none;
+        }
+        input:focus { border-color: var(--primary); background: rgba(99, 102, 241, 0.05); }
+        .btn {
+            width: 100%; height: 48px; margin-top: 1rem;
+            background: var(--primary); color: white; border: none;
+            border-radius: 12px; font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .error-msg { 
+            font-size: 13px; 
+            color: #f87171; 
+            background: rgba(248, 113, 113, 0.1); 
+            padding: 10px; 
+            border-radius: 8px; 
+            margin-bottom: 15px; 
+            text-align: center;
+            border: 1px solid rgba(248, 113, 113, 0.2);
+        }
+        .login-link { text-align: center; font-size: 14px; color: var(--text-dim); margin-top: 1.5rem; }
+        .login-link a { color: var(--primary); text-decoration: none; font-weight: 600; }
+        
+        /* Стили для шкалы сложности пароля */
+        .strength-bar { display: flex; gap: 4px; margin-top: 8px; }
+        .strength-bar div { height: 4px; flex: 1; border-radius: 2px; background: var(--border); transition: 0.3s; }
+
+        /* Успешное состояние */
+        .success-state { text-align: center; animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .success-icon { 
+            width: 64px; height: 64px; background: rgba(34, 197, 94, 0.2); 
+            color: #4ade80; border-radius: 50%; display: flex; 
+            align-items: center; justify-content: center; margin: 0 auto 1.5rem; 
+        }
+    </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState } = React;
+
+    const Brand = () => (
+        <div className="brand">
+            <div className="brand-logo">Agentic <span>Hackathon</span></div>
+        </div>
+    );
+
+    function RegistrationForm() {
+        const [formData, setFormData] = useState({ username: '', email: '', password: '' });
+        const [errors, setErrors] = useState({});
+        const [isSuccess, setIsSuccess] = useState(false);
+        const [loading, setLoading] = useState(false);
+
+        const strengthColors = ['#f87171', '#fbbf24', '#34d399', '#22c55e'];
+
+        const getPasswordStrength = (p) => {
+            if (!p) return 0;
+            let s = 0;
+            if (p.length >= 4) s++;
+            if (/[0-9]/.test(p)) s++;
+            if (p.length >= 8) s++;
+            return s;
+        };
+
+        const handleChange = (e) => {
+            const { id, value } = e.target;
+            setFormData(prev => ({ ...prev, [id]: value }));
+            if (errors[id] || errors.global) setErrors({});
+        };
+
+        // Переводчик ошибок FastAPI
+        const translateError = (err) => {
+            if (err.msg === "value is not a valid integer") return "Пароль должен состоять только из ЦИФР";
+            if (err.msg === "value is not a valid email address") return "Неверный формат почты";
+            if (err.type === "missing") return `Поле ${err.loc[1]} обязательно`;
+            return err.msg;
+        };
+
+        const handleSubmit = async (e) => {
+            e.preventDefault();
+            setLoading(true);
+            setErrors({});
+
+            try {
+                const response = await fetch('http://127.0.0.1:8000/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    setIsSuccess(true);
+                } else {
+                    let finalError = "Ошибка регистрации";
+                    if (data.detail) {
+                        finalError = Array.isArray(data.detail) 
+                            ? data.detail.map(err => translateError(err)).join(". ") 
+                            : data.detail;
+                    }
+                    setErrors({ global: finalError });
+                }
+            } catch (err) {
+                setErrors({ global: 'Сервер не отвечает попробуйте позже' });
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (isSuccess) {
+            return (
+                <div className="success-state">
+                    <div className="success-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
+                    <h2 style={{color: '#4ade80'}}>Успешно!</h2>
+                    <p style={{color: 'var(--text-dim)', marginTop: '10px'}}>
+                        Аккаунт для <b>{formData.username}</b> создан.
+                    </p>
+                    <button className="btn" onClick={() => window.location.reload()}>
+                        Вернуться
+                    </button>
+                </div>
+            );
+        }
+
+        const strength = getPasswordStrength(formData.password);
+
+        return (
+            <div>
+                <Brand />
+                <h1>Регистрация</h1>
+                <p className="subtitle">Присоединяйтесь к будущему AI</p>
+
+                {errors.global && <div className="error-msg">{errors.global}</div>}
+
+                <div className="field">
+                    <label>Username</label>
+                    <input 
+                        type="text" id="username" 
+                        placeholder="Введите никнейм"
+                        value={formData.username}
+                        onChange={handleChange}
+                        required
+                    />
+                </div>
+
+                <div className="field">
+                    <label>Email</label>
+                    <input 
+                        type="email" id="email" 
+                        placeholder="example@mail.com"
+                        value={formData.email}
+                        onChange={handleChange}
+                        required
+                    />
+                </div>
+
+                <div className="field">
+                    <label>Пароль (только цифры)</label>
+                    <input 
+                        type="password" id="password" 
+                        placeholder="Напр: 12345678"
+                        value={formData.password}
+                        onChange={handleChange}
+                        required
+                    />
+                    <div className="strength-bar">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} style={{ background: i <= strength ? strengthColors[strength - 1] : 'var(--border)' }}></div>
+                        ))}
+                    </div>
+                </div>
+
+                <button className="btn" onClick={handleSubmit} disabled={loading}>
+                    {loading ? 'Отправка...' : 'Создать аккаунт'}
+                </button>
+
+                <div className="login-link">
+                    Уже есть аккаунт? <a href="#">Войти</a>
+                </div>
+            </div>
+        );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<div className="card"><RegistrationForm /></div>);
+</script>
+
+</body>
+</html>

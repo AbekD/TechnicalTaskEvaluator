@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent Chat - Agentic Hackathon</title>
+    
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dim: rgba(99, 102, 241, 0.1);
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1e38 100%);
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --text-main: #ffffff;
+            --text-dim: #94a3b8;
+            --input-bg: rgba(0, 0, 0, 0.2);
+            --border: rgba(255, 255, 255, 0.08);
+            --user-msg-bg: #6366f1;
+            --ai-msg-bg: rgba(255, 255, 255, 0.05);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            height: 100vh;
+            background: var(--bg-gradient);
+            font-family: 'Inter', -apple-system, sans-serif;
+            color: var(--text-main);
+            display: flex;
+            overflow: hidden; /* Запрещаем скролл всему боди */
+        }
+
+        /* --- Основной контейнер чата --- */
+        #root {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        /* --- Хедер (Верхняя панель) --- */
+        .chat-header {
+            padding: 1rem 2rem;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .agent-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .agent-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary-dim);
+            border: 2px solid var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .agent-status {
+            font-size: 14px;
+            color: var(--text-dim);
+        }
+        
+        .agent-status span {
+            color: #4ade80; /* Зеленый онлайн */
+            font-weight: 600;
+        }
+
+        .logout-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        
+        .logout-btn:hover {
+            background: rgba(248, 113, 113, 0.1);
+            color: #f87171;
+            border-color: rgba(248, 113, 113, 0.3);
+        }
+
+        /* --- Зона сообщений (Скроллящаяся) --- */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            scroll-behavior: smooth;
+        }
+        
+        /* Стилизация скроллбара */
+        .messages-container::-webkit-scrollbar { width: 6px; }
+        .messages-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+        /* --- Стили сообщений --- */
+        .message {
+            max-width: 75%;
+            padding: 1rem 1.25rem;
+            border-radius: 16px;
+            font-size: 15px;
+            line-height: 1.5;
+            position: relative;
+            word-wrap: break-word;
+        }
+
+        /* Сообщение пользователя */
+        .message.user {
+            align-self: flex-end;
+            background: var(--user-msg-bg);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        /* Сообщение ИИ */
+        .message.ai {
+            align-self: flex-start;
+            background: var(--ai-msg-bg);
+            color: var(--text-main);
+            border-bottom-left-radius: 4px;
+            border: 1px solid var(--border);
+        }
+        
+        .message-info {
+            font-size: 11px;
+            color: var(--text-dim);
+            margin-top: 8px;
+            display: block;
+        }
+        
+        .message.user .message-info { color: rgba(255,255,255,0.7); text-align: right; }
+
+        /* Анимация троеточия (AI печатает) */
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 10px 15px;
+        }
+        
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: var(--text-dim);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        /* --- Зона ввода (Нижняя панель) --- */
+        .input-area {
+            padding: 1.5rem 2rem;
+            background: rgba(15, 23, 42, 0.8);
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            height: 50px;
+            padding: 0 1.25rem;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: white;
+            font-size: 15px;
+            outline: none;
+            transition: all 0.2s;
+        }
+        
+        .chat-input:focus {
+            border-color: var(--primary);
+            background: rgba(99, 102, 241, 0.05);
+        }
+
+        .send-btn {
+            height: 50px;
+            width: 50px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .send-btn:hover:not(:disabled) {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+        
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    function ChatApp() {
+        // Стейт для хранения сообщений чата
+        // Каждый объект: { id: 1, sender: 'user'|'ai', text: '...', time: '12:00' }
+        const [messages, setMessages] = useState([
+            { id: 1, sender: 'ai', text: 'Привет! Я твой AI-агент на этом хакатоне. Чем могу помочь?', time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }
+        ]);
+        
+        // Стейт для текста в поле ввода
+        const [inputValue, setInputValue] = useState('');
+        
+        // Стейт для индикации загрузки (AI думает)
+        const [isAiTyping, setIsAiTyping] = useState(false);
+        
+        // Ref для автоматического скролла вниз при новых сообщениях
+        const messagesEndRef = useRef(null);
+
+        // Функция автоскролла
+        const scrollToBottom = () => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        };
+
+        // Скроллим вниз каждый раз, когда меняется массив сообщений
+        useEffect(() => {
+            scrollToBottom();
+        }, [messages]);
+
+        // Функция отправки сообщения
+        const handleSendMessage = async () => {
+            if (!inputValue.trim()) return; // Не отправляем пустые
+
+            const currentTime = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            // 1. Создаем объект сообщения пользователя
+            const userMessage = {
+                id: Date.now(),
+                sender: 'user',
+                text: inputValue,
+                time: currentTime
+            };
+
+            // 2. Добавляем его в чат и очищаем поле ввода
+            setMessages(prev => [...prev, userMessage]);
+            setInputValue('');
+            
+            // 3. Включаем индикатор "AI печатает"
+            setIsAiTyping(true);
+
+            try {
+                // --- ЗАПРОС К PYTHON БЭКЕНДУ ---
+                const response = await fetch('http://127.0.0.1:8000/api/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // Сюда можно добавить токен авторизации, если нужно
+                    },
+                    body: JSON.stringify({ message: userMessage.text }),
+                });
+
+                if (!response.ok) throw new Error('Ошибка сети');
+
+                const data = await response.json();
+
+                // 4. Создаем сообщение от ИИ на основе ответа сервера
+                const aiMessage = {
+                    id: Date.now() + 1,
+                    sender: 'ai',
+                    text: data.response, // Ожидаем, что Python вернет { "response": "..." }
+                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                };
+
+                // 5. Добавляем ответ ИИ в чат
+                setMessages(prev => [...prev, aiMessage]);
+
+            } catch (error) {
+                console.error("Ошибка чата:", error);
+                // Добавляем сообщение об ошибке в чат для пользователя
+                setMessages(prev => [...prev, {
+                    id: Date.now() + 1,
+                    sender: 'ai',
+                    text: '⚠️ Извини, произошла ошибка подключения к ИИ-агенту.',
+                    time: currentTime
+                }]);
+            } finally {
+                // В любом случае выключаем индикатор загрузки
+                setIsAiTyping(false);
+            }
+        };
+        
+        // Обработка нажатия Enter
+        const handleKeyDown = (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+            }
+        };
+        
+        // Функция выхода
+        const handleLogout = () => {
+            localStorage.removeItem('userName'); // Очищаем память
+            window.location.href = 'index.html'; // На страницу входа
+        };
+
+        return (
+            <React.Fragment>
+                {/* Хедер чата */}
+                <header className="chat-header">
+                    <div className="agent-info">
+                        <div className="agent-avatar">🤖</div>
+                        <div>
+                            <div style={{fontWeight: 700}}>Hackathon Agent</div>
+                            <div className="agent-status">Статус: <span>● Онлайн</span></div>
+                        </div>
+                    </div>
+                    <button className="logout-btn" onClick={handleLogout}>Выйти</button>
+                </header>
+
+                {/* Окно сообщений */}
+                <div className="messages-container">
+                    {messages.map(msg => (
+                        <div key={msg.id} className={`message ${msg.sender}`}>
+                            {msg.text}
+                            <span className="message-info">{msg.time}</span>
+                        </div>
+                    ))};
+                    
+                    {/* Индикатор загрузки AI */}
+                    {isAiTyping && (
+                        <div className="message ai">
+                            <div className="typing-indicator">
+                                <span></span><span></span><span></span>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Невидимый элемент для автоскролла */}
+                    <div ref={messagesEndRef} />
+                </div>
+
+                {/* Зона ввода */}
+                <footer className="input-area">
+                    <input 
+                        type="text" 
+                        className="chat-input"
+                        placeholder="Напишите сообщение агенту... (Enter для отправки)"
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        disabled={isAiTyping}
+                    />
+                    <button 
+                        className="send-btn" 
+                        onClick={handleSendMessage}
+                        disabled={!inputValue.trim() || isAiTyping}
+                    >
+                        ➤
+                    </button>
+                </footer>
+            </React.Fragment>
+        );
+    }
+
+    // Рендерим приложение
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<ChatApp />);
+</script>
+
+</body>
+</html>

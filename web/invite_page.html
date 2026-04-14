@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agentic Hackathon - Вход</title>
+    
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e1e38 100%);
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --text-main: #ffffff;
+            --text-dim: #94a3b8;
+            --input-bg: rgba(0, 0, 0, 0.2);
+            --border: rgba(255, 255, 255, 0.1);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-gradient);
+            font-family: 'Inter', -apple-system, sans-serif;
+            color: var(--text-main);
+        }
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 3rem 2.5rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+        .brand { text-align: center; margin-bottom: 2.5rem; }
+        .brand-logo { font-size: 22px; font-weight: 800; text-transform: uppercase; }
+        .brand-logo span {
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        h1 { font-size: 24px; font-weight: 600; margin-bottom: 0.5rem; text-align: center; }
+        .subtitle { font-size: 14px; color: var(--text-dim); margin-bottom: 2rem; text-align: center; }
+        .field { margin-bottom: 1.2rem; }
+        label { display: block; font-size: 12px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; margin-bottom: 8px; }
+        input {
+            width: 100%; height: 48px; padding: 0 16px;
+            background: var(--input-bg); border: 1px solid var(--border);
+            border-radius: 12px; color: white; font-size: 15px;
+            transition: all 0.2s; outline: none;
+        }
+        input:focus { border-color: var(--primary); background: rgba(99, 102, 241, 0.05); }
+        .btn {
+            width: 100%; height: 48px; margin-top: 1rem;
+            background: var(--primary); color: white; border: none;
+            border-radius: 12px; font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .error-msg { font-size: 12px; color: #f87171; margin-bottom: 1rem; text-align: center; }
+        .footer-links { text-align: center; font-size: 14px; color: var(--text-dim); margin-top: 1.5rem; }
+        .footer-links a { color: var(--primary); text-decoration: none; font-weight: 600; }
+        .forgot-pass { font-size: 12px; color: var(--text-dim); text-decoration: none; display: block; text-align: right; margin-top: 6px; }
+        .forgot-pass:hover { color: var(--primary); }
+    </style>
+</head>
+<body>
+
+<div id="root"></div>
+
+<script type="text/babel">
+    const { useState } = React;
+
+    const Brand = () => (
+        <div className="brand">
+            <div className="brand-logo">Agentic <span>Hackathon</span></div>
+        </div>
+    );
+
+    function LoginForm() {
+        // Изменили ключи в стейте, чтобы они совпадали с именами в инпутах и ожиданиями бэкенда
+        const [loginData, setLoginData] = useState({ id: '', password: '' });
+        const [error, setError] = useState('');
+        const [loading, setLoading] = useState(false);
+
+        const handleInputChange = (e) => {
+            const { name, value } = e.target;
+            setLoginData(prev => ({ ...prev, [name]: value }));
+            if (error) setError('');
+        };
+
+        const handleLogin = async (e) => {
+            e.preventDefault();
+            
+            if (!loginData.id || !loginData.password) {
+                setError('Заполните все поля');
+                return;
+            }
+
+            setLoading(true);
+            setError('');
+
+            try {
+                // ОТПРАВКА ЗАПРОСА НА PYTHON
+                const response = await fetch('http://127.0.0.1:8000/api/enter', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    // Отправляем объект, который FastAPI превратит в модель Enter
+                    body: JSON.stringify({
+                        email_or_username: loginData.id,
+                        password: loginData.password
+                    }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === "success") {
+                    // 1. Сохраняем имя в память браузера
+                    localStorage.setItem('userName', data.user);
+                    
+                    // 2. Редирект на страницу дашборда
+                    window.location.href = data.redirect_url; 
+                } else {
+                    // Выводим ошибку из FastAPI (detail)
+                    setError(data.detail || "Ошибка входа");
+                }
+            } catch (err) {
+                setError("Не удалось связаться с сервером");
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        return (
+            <div>
+                <Brand />
+                <h1>С возвращением</h1>
+                <p className="subtitle">Войдите в свою панель управления</p>
+
+                {error && <div className="error-msg">{error}</div>}
+
+                <div className="field">
+                    <label>Username или Email</label>
+                    <input 
+                        type="text" 
+                        name="id"
+                        placeholder="alex_ai"
+                        value={loginData.id}
+                        onChange={handleInputChange}
+                        disabled={loading}
+                    />
+                </div>
+
+                <div className="field">
+                    <label>Пароль</label>
+                    <input 
+                        type="password" 
+                        name="password"
+                        placeholder="••••••••"
+                        value={loginData.password}
+                        onChange={handleInputChange}
+                        disabled={loading}
+                    />
+                    <a href="#" className="forgot-pass">Забыли пароль?</a>
+                </div>
+
+                <button className="btn" onClick={handleLogin} disabled={loading}>
+                    {loading ? 'Проверка...' : 'Войти'}
+                </button>
+
+                <div className="footer-links">
+                    Нет аккаунта? <a href="register_page_utf8.html">Зарегистрироваться</a>
+                </div>
+            </div>
+        );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(
+        <div className="card">
+            <LoginForm />
+        </div>
+    );
+</script>
+
+</body>
+</html>
